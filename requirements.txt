@@ -3,4 +3,3 @@ ics
 apscheduler
 aiohttp
 aiohttp-cors
-zoneinfo
