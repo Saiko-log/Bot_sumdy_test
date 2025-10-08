@@ -15,7 +15,7 @@ from ics import Calendar
 from aiohttp import web
 import aiohttp_cors
 
-# --- 1. Конфигурация ---
+# --- 1. CONFIGURATION ---
 BOT_TOKEN = "7962722551:AAG3zZ0TAm3FdL3C416-ntl3N5XmCSs_G4s"
 WEB_APP_URL = "https://saiko-log.github.io/Bot_sumdy_test/"
 
@@ -23,11 +23,10 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 scheduler = AsyncIOScheduler(timezone="Europe/Kiev")
 
-# --- 2. База данных ---
+# --- 2. DATABASE LOGIC ---
 def init_db():
     conn = sqlite3.connect('schedule.db')
     cur = conn.cursor()
-    # Таблица для пар
     cur.execute('''
     CREATE TABLE IF NOT EXISTS classes (
         id INTEGER PRIMARY KEY, uid TEXT UNIQUE, user_id INTEGER, summary TEXT,
@@ -35,7 +34,6 @@ def init_db():
         link TEXT, notes TEXT
     )
     ''')
-    # Новая таблица для глобальных ссылок
     cur.execute('''
     CREATE TABLE IF NOT EXISTS subject_links (
         summary TEXT PRIMARY KEY,
@@ -45,7 +43,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- 3. Логика напоминаний (без изменений) ---
+# --- 3. REMINDER LOGIC ---
 async def send_class_reminder(user_id: int, summary: str, dtstart_str: str):
     start_time = datetime.fromisoformat(dtstart_str).strftime("%H:%M")
     await bot.send_message(
@@ -69,7 +67,7 @@ def schedule_reminders(user_id: int):
             scheduler.add_job(send_class_reminder, 'date', run_date=trigger_time, args=[user_id, summary, dtstart_str])
     print(f"Запланировано {len(classes)} напоминаний.")
 
-# --- 4. Обработчики веб-запросов ---
+# --- 4. WEB SERVER HANDLERS ---
 async def get_schedule(request):
     conn = sqlite3.connect('schedule.db')
     conn.row_factory = sqlite3.Row
@@ -106,7 +104,7 @@ async def save_global_link(request):
     conn.close()
     return web.Response(text=json.dumps({"status": "ok"}), content_type='application/json')
 
-# --- 5. Обработчики Telegram (без изменений) ---
+# --- 5. TELEGRAM MESSAGE HANDLERS ---
 @dp.message(CommandStart())
 async def send_welcome(message: types.Message):
     builder = InlineKeyboardBuilder()
@@ -135,7 +133,7 @@ async def handle_docs(message: types.Message):
     await message.reply("Расписание успешно загружено!")
     schedule_reminders(message.from_user.id)
 
-# --- 6. Основная функция запуска ---
+# --- 6. MAIN STARTUP FUNCTION ---
 async def main():
     init_db()
     scheduler.start()
@@ -145,13 +143,25 @@ async def main():
         web.post('/saveNotes', save_notes),
         web.post('/saveGlobalLink', save_global_link),
     ])
-    cors = aiohttp_cors.setup(app, defaults={ "*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*") })
-    for route in list(app.router.routes()): cors.add(route)
+    
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_headers="*",
+                allow_methods=["GET", "POST"], # Explicitly allow GET and POST
+            )
+    })
+
+    for route in list(app.router.routes()):
+        cors.add(route)
+    
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', 8080)
     print("Веб-сервер запущен на http://0.0.0.0:8080")
     await site.start()
+
     print("Бот запущен...")
     await dp.start_polling(bot)
 
