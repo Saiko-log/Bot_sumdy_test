@@ -6,10 +6,10 @@
     <title>My Schedule</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* 2. CSS Styles for the app */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             padding: 10px;
+            margin: 0;
             background-color: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
         }
@@ -32,7 +32,8 @@
             margin-top: 10px;
         }
         textarea, input {
-            width: 95%;
+            box-sizing: border-box;
+            width: 100%;
             padding: 8px;
             margin-top: 5px;
             border-radius: 5px;
@@ -58,13 +59,44 @@
     <div id="schedule-container"></div>
 
     <script>
-        // Wait for the entire page to load before running the script
         window.onload = function() {
             const tg = window.Telegram.WebApp;
             tg.ready();
 
-            // IMPORTANT: PASTE YOUR CURRENT NGROK URL HERE
-            const BACKEND_URL = "https://wisplike-stetson-pseudoerysipelatous.ngrok-free.dev";
+            // VVVVVV IMPORTANT: PASTE YOUR CURRENT NGROK URL HERE VVVVVV
+           const BACKEND_URL = "https://wisplike-stetson-pseudoerysipelatous.ngrok-free.dev";
+            // ^^^^^^ IMPORTANT: PASTE YOUR CURRENT NGROK URL HERE ^^^^^^
+
+            // Make saveChanges function globally accessible so the button's onclick can find it
+            window.saveChanges = async function(uid) {
+                const link = document.getElementById(`link-${uid}`).value;
+                const notes = document.getElementById(`notes-${uid}`).value;
+
+                try {
+                    const response = await fetch(`${BACKEND_URL}/saveNotes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ uid, link, notes }),
+                    });
+
+                    if (response.ok) {
+                        tg.showPopup({
+                            title: 'Saved!',
+                            message: 'Your notes and link have been updated.',
+                            buttons: [{type: 'ok'}]
+                        });
+                    } else {
+                        throw new Error('Failed to save data');
+                    }
+                } catch (error) {
+                    tg.showPopup({
+                        title: 'Error',
+                        message: error.message,
+                        buttons: [{type: 'ok'}]
+                    });
+                    console.error("Save error:", error);
+                }
+            }
 
             async function loadAndRenderSchedule() {
                 const container = document.getElementById('schedule-container');
@@ -110,39 +142,8 @@
                         container.appendChild(card);
                     });
                 } catch (error) {
-                    container.innerHTML = `<p>Failed to load schedule. Make sure the bot and ngrok are running.</p>`;
+                    container.innerHTML = `<p>Failed to load schedule. Make sure the bot and ngrok are running, and that the ngrok URL in the code is correct.</p>`;
                     console.error("Fetch error:", error);
-                }
-            }
-
-            // Make the saveChanges function globally accessible
-            window.saveChanges = async function(uid) {
-                const link = document.getElementById(`link-${uid}`).value;
-                const notes = document.getElementById(`notes-${uid}`).value;
-
-                try {
-                    const response = await fetch(`${BACKEND_URL}/saveNotes`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ uid, link, notes }),
-                    });
-
-                    if (response.ok) {
-                        tg.showPopup({
-                            title: 'Saved!',
-                            message: 'Your notes and link have been updated.',
-                            buttons: [{type: 'ok'}]
-                        });
-                    } else {
-                        throw new Error('Failed to save data');
-                    }
-                } catch (error) {
-                    tg.showPopup({
-                        title: 'Error',
-                        message: error.message,
-                        buttons: [{type: 'ok'}]
-                    });
-                    console.error("Save error:", error);
                 }
             }
             
@@ -150,6 +151,4 @@
         };
     </script>
 </body>
-
 </html>
-
