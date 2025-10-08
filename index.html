@@ -67,36 +67,7 @@
            const BACKEND_URL = "https://wisplike-stetson-pseudoerysipelatous.ngrok-free.dev";
             // ^^^^^^ IMPORTANT: PASTE YOUR CURRENT NGROK URL HERE ^^^^^^
 
-            // Make saveChanges function globally accessible so the button's onclick can find it
-            window.saveChanges = async function(uid) {
-                const link = document.getElementById(`link-${uid}`).value;
-                const notes = document.getElementById(`notes-${uid}`).value;
-
-                try {
-                    const response = await fetch(`${BACKEND_URL}/saveNotes`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ uid, link, notes }),
-                    });
-
-                    if (response.ok) {
-                        tg.showPopup({
-                            title: 'Saved!',
-                            message: 'Your notes and link have been updated.',
-                            buttons: [{type: 'ok'}]
-                        });
-                    } else {
-                        throw new Error('Failed to save data');
-                    }
-                } catch (error) {
-                    tg.showPopup({
-                        title: 'Error',
-                        message: error.message,
-                        buttons: [{type: 'ok'}]
-                    });
-                    console.error("Save error:", error);
-                }
-            }
+        
 
             async function loadAndRenderSchedule() {
                 const container = document.getElementById('schedule-container');
@@ -152,3 +123,4 @@
     </script>
 </body>
 </html>
+
