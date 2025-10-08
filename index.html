@@ -48,29 +48,8 @@
     </div>
     <div id="schedule-container" class="schedule-container"></div>
 
-    <div id="modal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header"> <h2 id="modal-title" class="modal-title"></h2> <span class="close-button" id="modal-close-button">&times;</span> </div>
-            <div class="modal-body">
-                <input type="hidden" id="modal-uid">
-                <label for="modal-link">Личная ссылка:</label> <input type="url" id="modal-link">
-                <label for="modal-notes">Личные заметки:</label> <textarea id="modal-notes" rows="4"></textarea>
-                <button id="modal-save">Сохранить заметку</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="admin-modal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Настройки ссылок</h2>
-                <span class="close-button" id="admin-close-button">&times;</span>
-            </div>
-            <div class="modal-body">
-                <ul id="subject-list" class="admin-list"></ul>
-            </div>
-        </div>
-    </div>
+    <div id="modal" class="modal-overlay"></div>
+    <div id="admin-modal" class="modal-overlay"></div>
 
     <script>
         window.onload = function() {
@@ -88,7 +67,7 @@
             let currentView = 'today';
             let all_classes = [];
 
-            // --- ОБЩАЯ ЛОГИКА ---
+            // --- INITIAL LOAD ---
             async function initialLoad() {
                 try {
                     const response = await fetch(`${BACKEND_URL}/getSchedule`);
@@ -102,7 +81,7 @@
                 }
             }
 
-            // --- ЛОГИКА ПЕРЕКЛЮЧАТЕЛЯ ВИДА ---
+            // --- VIEW SWITCHING ---
             todayBtn.onclick = () => switchView('today');
             weekBtn.onclick = () => switchView('week');
             function switchView(view) {
@@ -112,7 +91,7 @@
                 renderSchedule();
             }
 
-            // --- ОСНОВНАЯ ФУНКЦИЯ ОТРИСОВКИ ---
+            // --- MAIN RENDER DISPATCHER ---
             function renderSchedule() {
                 scheduleContainer.innerHTML = '';
                 if (all_classes.length === 0) {
@@ -131,7 +110,7 @@
                 }
             }
 
-            // --- ОТРИСОВКА ВИДА "НЕДЕЛЯ" ---
+            // --- WEEK VIEW RENDERER ---
             function renderWeekView(classes) {
                 scheduleContainer.style.height = 'auto';
                 scheduleContainer.style.paddingLeft = '10px';
@@ -151,7 +130,7 @@
                 });
             }
 
-            // --- ОТРИСОВКА ВИДА "СЕГОДНЯ" ---
+            // --- TODAY VIEW RENDERER ---
             function renderTodayView(classes) {
                 scheduleContainer.style.paddingLeft = '55px';
                 const PIXELS_PER_HOUR = 80, START_HOUR = 7, END_HOUR = 21;
@@ -180,7 +159,7 @@
                 }
             }
 
-            // --- ОБЩАЯ ФУНКЦИЯ ОТРИСОВКИ КАРТОЧКИ ---
+            // --- CARD RENDERER ---
             function renderCard(cls, isTimelineView) {
                 const startDate = new Date(cls.dtstart);
                 const endDate = new Date(cls.dtend);
@@ -213,28 +192,31 @@
                 return card;
             }
 
-            // --- ЛОГИКА МОДАЛЬНЫХ ОКОН ---
+            // --- PERSONAL NOTES MODAL ---
             function openModal(cls) {
-                modal.innerHTML = `...`; // Содержимое генерируется
                 modal.innerHTML = `
                     <div class="modal-content">
-                        <div class="modal-header"> <h2 id="modal-title" class="modal-title">${cls.summary || 'Детали'}</h2> <span class="close-button" id="modal-close-button">&times;</span> </div>
+                        <div class="modal-header">
+                            <h2 class="modal-title">${cls.summary || 'Детали'}</h2>
+                            <span class="close-button">&times;</span>
+                        </div>
                         <div class="modal-body">
                             <input type="hidden" id="modal-uid" value="${cls.uid}">
-                            <label for="modal-link">Личная ссылка:</label> <input type="url" id="modal-link" value="${cls.link || ''}">
-                            <label for="modal-notes">Личные заметки:</label> <textarea id="modal-notes" rows="4">${cls.notes || ''}</textarea>
+                            <label for="modal-link">Личная ссылка:</label>
+                            <input type="url" id="modal-link" value="${cls.link || ''}">
+                            <label for="modal-notes">Личные заметки:</label>
+                            <textarea id="modal-notes" rows="4">${cls.notes || ''}</textarea>
                             <button id="modal-save">Сохранить заметку</button>
                         </div>
                     </div>`;
                 modal.style.display = 'flex';
-                modal.querySelector('#modal-close-button').onclick = closeModal;
+                modal.querySelector('.close-button').onclick = closeModal;
                 modal.querySelector('#modal-save').onclick = () => saveChanges(cls.uid);
             }
             function closeModal() { modal.style.display = 'none'; }
-            
             async function saveChanges(uid) {
-                const link = document.getElementById('modal-link').value;
-                const notes = document.getElementById('modal-notes').value;
+                const link = modal.querySelector('#modal-link').value;
+                const notes = modal.querySelector('#modal-notes').value;
                 try {
                     const response = await fetch(`${BACKEND_URL}/saveNotes`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -251,17 +233,17 @@
                 }
             }
             
-            // --- ЛОГИКА АДМИН-ПАНЕЛИ ---
+            // --- ADMIN PANEL MODAL ---
             settingsBtn.onclick = () => {
                 const password = prompt("Введите пароль администратора:");
                 if (password === "1234") { openAdminModal(); } 
-                else if (password) { alert("Неверный пароль."); }
+                else if (password !== null && password !== "") { alert("Неверный пароль."); }
             };
-            
             function openAdminModal() {
                 const subjectList = document.createElement('ul');
                 subjectList.className = 'admin-list';
                 const uniqueSummaries = [...new Map(all_classes.map(item => [item.summary, item])).values()];
+                
                 uniqueSummaries.forEach(cls => {
                     if (!cls.summary) return;
                     const li = document.createElement('li');
@@ -277,26 +259,24 @@
                     <div class="modal-content">
                         <div class="modal-header">
                             <h2 class="modal-title">Настройки ссылок</h2>
-                            <span class="close-button" id="admin-close-button">&times;</span>
+                            <span class="close-button">&times;</span>
                         </div>
                         <div class="modal-body"></div>
                     </div>`;
                 adminModal.querySelector('.modal-body').appendChild(subjectList);
                 adminModal.style.display = 'flex';
-                adminModal.querySelector('#admin-close-button').onclick = () => adminModal.style.display = 'none';
+                adminModal.querySelector('.close-button').onclick = () => adminModal.style.display = 'none';
             }
-
             adminModal.addEventListener('click', async (e) => {
                 if (e.target.tagName === 'BUTTON' && e.target.dataset.summary) {
                     const summary = e.target.dataset.summary;
-                    const link = document.getElementById(e.target.dataset.inputId).value;
+                    const link = adminModal.querySelector(`#${e.target.dataset.inputId}`).value;
                     e.target.innerText = 'Сохр...';
                     await saveGlobalLink(summary, link);
                     e.target.innerText = 'Сохранено!';
                     setTimeout(() => { e.target.innerText = 'Сохранить'; }, 2000);
                 }
             });
-
             async function saveGlobalLink(summary, link) {
                 try {
                     const response = await fetch(`${BACKEND_URL}/saveGlobalLink`, {
@@ -310,7 +290,7 @@
                 } catch (error) { alert(error.message); }
             }
 
-            // --- ЗАПУСК ---
+            // --- START ---
             initialLoad();
         };
     </script>
