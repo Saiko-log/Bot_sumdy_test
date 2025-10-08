@@ -36,8 +36,45 @@
         .modal-body input, .modal-body textarea { box-sizing: border-box; width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid var(--border-color); background-color: var(--tg-bg); color: var(--tg-text); }
         .modal-body button { background-color: var(--tg-button); color: var(--tg-button-text); border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-top: 20px; width: 100%; }
         .admin-list { list-style: none; padding: 0; max-height: 400px; overflow-y: auto; }
-        .admin-list li { margin-bottom: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; }
-        .admin-list button { width: auto; padding: 5px 10px; font-size: 0.8em; float: right; }
+        .admin-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 0;
+}
+
+.admin-list label {
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.admin-list input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background-color: var(--tg-bg);
+    color: var(--tg-text);
+}
+
+.admin-list button {
+    align-self: flex-end;
+    background-color: var(--tg-button);
+    color: var(--tg-button-text);
+    border: none;
+    border-radius: 5px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: opacity 0.2s;
+}
+
+.admin-list button:hover {
+    opacity: 0.8;
+}
+
     </style>
 </head>
 <body>
@@ -267,28 +304,71 @@
                 adminModal.style.display = 'flex';
                 adminModal.querySelector('.close-button').onclick = () => adminModal.style.display = 'none';
             }
-            adminModal.addEventListener('click', async (e) => {
-                if (e.target.tagName === 'BUTTON' && e.target.dataset.summary) {
-                    const summary = e.target.dataset.summary;
-                    const link = adminModal.querySelector(`#${e.target.dataset.inputId}`).value;
-                    e.target.innerText = 'Сохр...';
-                    await saveGlobalLink(summary, link);
-                    e.target.innerText = 'Сохранено!';
-                    setTimeout(() => { e.target.innerText = 'Сохранить'; }, 2000);
+            // --- исправленный блок сохранения ссылок по названию пары ---
+// --- окончательно исправленный обработчик сохранения ссылок ---
+adminModal.addEventListener('click', async (e) => {
+    if (e.target.tagName === 'BUTTON' && e.target.dataset.summary) {
+        const btn = e.target;
+        const inputId = btn.dataset.inputId;
+        const linkInput = adminModal.querySelector(`#${inputId}`);
+        const link = linkInput.value.trim();
+
+        if (!link) {
+            alert('Введите ссылку перед сохранением');
+            return;
+        }
+
+        const subjectName = decodeURIComponent(btn.dataset.summary || '').trim();
+        if (!subjectName) {
+            alert('Не удалось определить название пары');
+            return;
+        }
+
+        btn.textContent = 'Сохр...';
+        btn.disabled = true;
+
+        try {
+            // ищем все пары с таким же названием
+            const sameSubjects = all_classes.filter(cls => cls.summary && cls.summary.trim() === subjectName);
+
+            if (sameSubjects.length === 0) {
+                throw new Error(`Не найдены пары с названием "${subjectName}".`);
+            }
+
+            // сохраняем ссылку для всех совпавших пар
+            const promises = sameSubjects.map(cls => {
+                const body = { uid: cls.uid, link: link, notes: cls.notes || '' };
+                return fetch(`${BACKEND_URL}/saveNotes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+            });
+
+            await Promise.all(promises);
+
+            // обновляем локальные данные
+            all_classes.forEach(cls => {
+                if (cls.summary && cls.summary.trim() === subjectName) {
+                    cls.link = link;
+                    cls.global_link = link;
                 }
             });
-            async function saveGlobalLink(summary, link) {
-                try {
-                    const response = await fetch(`${BACKEND_URL}/saveGlobalLink`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ summary, link }),
-                    });
-                    if (response.ok) {
-                        all_classes.forEach(c => { if (c.summary === summary) { c.global_link = link; } });
-                        renderSchedule();
-                    } else { throw new Error('Ошибка сохранения'); }
-                } catch (error) { alert(error.message); }
-            }
+
+            renderSchedule();
+            btn.textContent = 'Сохранено!';
+            setTimeout(() => { btn.textContent = 'Сохранить'; btn.disabled = false; }, 1500);
+
+        } catch (err) {
+            console.error(err);
+            alert('Ошибка: ' + err.message);
+            btn.textContent = 'Сохранить';
+            btn.disabled = false;
+        }
+    }
+});
+
+
 
             // --- START ---
             initialLoad();
